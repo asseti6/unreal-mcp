@@ -46,6 +46,20 @@ public:
      */
     static TArray<FString> GetSupportedComponentTypes();
 
+    /**
+     * Checks if a component type string represents a custom Widget Blueprint path
+     * @param ComponentType - The component type to check
+     * @return true if this looks like a Widget Blueprint reference
+     */
+    static bool IsCustomWidgetBlueprintPath(const FString& ComponentType);
+
+    /**
+     * Resolves a Widget Blueprint path, handling partial paths like "WBP_MyWidget"
+     * @param ComponentType - The component type/path to resolve
+     * @return Full asset path or empty string if not found
+     */
+    static FString ResolveWidgetBlueprintPath(const FString& ComponentType);
+
 private:
     // Component creation methods for each type
     UWidget* CreateTextBlock(UWidgetBlueprint* WidgetBlueprint, const FString& ComponentName, const TSharedPtr<FJsonObject>& KwargsObject);
@@ -85,6 +99,16 @@ private:
     UWidget* CreateNativeWidgetHost(UWidgetBlueprint* WidgetBlueprint, const FString& ComponentName, const TSharedPtr<FJsonObject>& KwargsObject);
     UWidget* CreateBackgroundBlur(UWidgetBlueprint* WidgetBlueprint, const FString& ComponentName, const TSharedPtr<FJsonObject>& KwargsObject);
     UWidget* CreateUniformGridPanel(UWidgetBlueprint* WidgetBlueprint, const FString& ComponentName, const TSharedPtr<FJsonObject>& KwargsObject);
+
+    /**
+     * Creates an instance of a custom Widget Blueprint and adds it as a child
+     * @param ParentWidgetBlueprint - The widget blueprint to add the component to
+     * @param ComponentName - Name for the new component instance
+     * @param WidgetBlueprintPath - Path to the Widget Blueprint to instantiate (e.g., "/Game/UI/WBP_MyWidget" or "WBP_MyWidget")
+     * @param KwargsObject - Additional parameters (currently unused for custom widgets)
+     * @return Created widget instance or nullptr if creation failed
+     */
+    UWidget* CreateCustomWidgetBlueprint(UWidgetBlueprint* ParentWidgetBlueprint, const FString& ComponentName, const FString& WidgetBlueprintPath, const TSharedPtr<FJsonObject>& KwargsObject);
 
     // Helper functions
     bool GetJsonArray(const TSharedPtr<FJsonObject>& JsonObject, const FString& FieldName, TArray<TSharedPtr<FJsonValue>>& OutArray);

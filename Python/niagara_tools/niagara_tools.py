@@ -1,15 +1,24 @@
-"""Niagara Tools for Unreal MCP."""
+"""
+Niagara Tools for Unreal MCP.
+
+This module provides tools for creating and manipulating Unreal Engine Niagara VFX systems.
+"""
 
 import logging
 from typing import Dict, List, Any
 from mcp.server.fastmcp import FastMCP, Context
 from utils.unreal_connection_utils import send_unreal_command
 
+# Get logger
 logger = logging.getLogger("UnrealMCP")
 
 
 def register_niagara_tools(mcp: FastMCP):
     """Register Niagara tools with the MCP server."""
+
+    # =========================================================================
+    # Feature 1: Core Asset Management
+    # =========================================================================
 
     @mcp.tool()
     def create_niagara_system(
@@ -22,13 +31,39 @@ def register_niagara_tools(mcp: FastMCP):
         Create a new Niagara System asset.
 
         Args:
-            name: System name (e.g., "NS_FireEffect")
-            path: Content path for the system
+            name: Name of the system (e.g., "NS_FireEffect")
+            path: Content path where the system should be created
             template: Optional template system path to copy from
+
+        Returns:
+            Dict containing:
+                - success: Whether the system was created
+                - system_path: Full path to the created system
+                - message: Status message
+
+        Examples:
+            # Create a basic Niagara system
+            create_niagara_system(name="NS_Sparks")
+
+            # Create in a specific folder
+            create_niagara_system(
+                name="NS_Fire",
+                path="/Game/VFX/Fire"
+            )
+
+            # Create from a template
+            create_niagara_system(
+                name="NS_CustomFire",
+                template="/Game/VFX/Templates/NS_FireTemplate"
+            )
         """
-        params = {"name": name, "path": path}
+        params = {
+            "name": name,
+            "path": path
+        }
         if template:
             params["template"] = template
+
         logger.info(f"Creating Niagara system '{name}' at '{path}'")
         return send_unreal_command("create_niagara_system", params)
 
@@ -43,13 +78,33 @@ def register_niagara_tools(mcp: FastMCP):
         Create a new standalone Niagara Emitter asset.
 
         Args:
-            name: Emitter name (e.g., "NE_Sparks")
-            path: Content path for the emitter
+            name: Name of the emitter (e.g., "NE_Sparks")
+            path: Content path where the emitter should be created
             template: Optional template emitter path to copy from
+
+        Returns:
+            Dict containing:
+                - success: Whether the emitter was created
+                - emitter_path: Full path to the created emitter
+                - message: Status message
+
+        Examples:
+            # Create a basic emitter
+            create_niagara_emitter(name="NE_Smoke")
+
+            # Create from a template
+            create_niagara_emitter(
+                name="NE_CustomSmoke",
+                template="/Game/VFX/Templates/NE_SmokeTemplate"
+            )
         """
-        params = {"name": name, "path": path}
+        params = {
+            "name": name,
+            "path": path
+        }
         if template:
             params["template"] = template
+
         logger.info(f"Creating Niagara emitter '{name}' at '{path}'")
         return send_unreal_command("create_niagara_emitter", params)
 
@@ -64,13 +119,37 @@ def register_niagara_tools(mcp: FastMCP):
         Add an emitter to an existing Niagara System.
 
         Args:
-            system_path: Path to the target system
+            system_path: Path to the target system (e.g., "/Game/Niagara/NS_Fire")
             emitter_path: Path to the emitter to add
-            emitter_name: Optional display name in system
+            emitter_name: Optional display name for the emitter in system
+
+        Returns:
+            Dict containing:
+                - success: Whether the emitter was added
+                - emitter_handle_id: GUID handle for the added emitter
+                - message: Status message
+
+        Examples:
+            # Add an emitter to a system
+            add_emitter_to_system(
+                system_path="/Game/VFX/NS_Explosion",
+                emitter_path="/Game/VFX/Emitters/NE_Debris"
+            )
+
+            # Add with custom name
+            add_emitter_to_system(
+                system_path="/Game/VFX/NS_Explosion",
+                emitter_path="/Game/VFX/Emitters/NE_Sparks",
+                emitter_name="MainSparks"
+            )
         """
-        params = {"system_path": system_path, "emitter_path": emitter_path}
+        params = {
+            "system_path": system_path,
+            "emitter_path": emitter_path
+        }
         if emitter_name:
             params["emitter_name"] = emitter_name
+
         logger.info(f"Adding emitter '{emitter_path}' to system '{system_path}'")
         return send_unreal_command("add_emitter_to_system", params)
 
@@ -78,65 +157,44 @@ def register_niagara_tools(mcp: FastMCP):
     def get_niagara_metadata(
         ctx: Context,
         asset_path: str,
-        fields: List[str] = None,
-        emitter_name: str = None,
-        module_name: str = None,
-        stage: str = None
+        fields: List[str] = None
     ) -> Dict[str, Any]:
         """
         Get metadata about a Niagara System or Emitter.
 
         Args:
             asset_path: Path to the Niagara asset
-            fields: Filter fields to include:
-                - "emitters": All emitter handles (no filter required)
-                - "module_list": Compact module summary for all emitters (no filter required)
-                - "modules": Detailed modules (requires emitter_name + stage)
-                - "parameters": Exposed system parameters (no filter required)
-                - "renderers": Renderers by emitter (no filter required)
-                - "status": Compilation status (no filter required)
-                - "module_inputs": Detailed inputs for one module (requires emitter_name, module_name, stage)
-                - "*": All fields except modules (default if None)
-            emitter_name: Required for "modules" and "module_inputs" fields - name of the emitter
-            module_name: Required for "module_inputs" field - name of the module
-            stage: Required for "modules" field - "Spawn"|"Update"|"Render"
-                   Required for "module_inputs" field - "Spawn"|"Update"|"Event"
+            fields: Optional list of fields to retrieve:
+                - "emitters": List of emitters (systems only)
+                - "modules": Modules per emitter stage
+                - "parameters": User-exposed parameters
+                - "renderers": Renderer configurations
+                - "data_interfaces": Data interfaces in use
+                - "*": All fields (default)
 
         Returns:
-            For Systems:
-                - emitters[]: List of emitter handles (name, id, enabled, emitter_path)
-                - module_list[]: Compact summary per emitter (spawn_modules[], update_modules[] as names only)
-                - modules{}: Detailed modules for one emitter/stage (requires filters)
-                - renderers_by_emitter[]: Renderers per emitter (name, type, enabled, renderer_count)
-                - parameters[]: Exposed system parameters
-                - compile_status: "Valid" or "Invalid"
-            For Emitters:
-                - renderers[]: Direct renderer list
-                - version: Emitter version GUID
-            For module_inputs field:
-                - module_name: Actual module name
-                - emitter_name: Emitter containing the module
-                - stage: Stage the module is in
-                - inputs[]: Array of {name, type, value, is_connected}
-                - input_count: Number of inputs
+            Dict containing:
+                - success: Whether the asset was found
+                - asset_type: "System" or "Emitter"
+                - (requested fields)
+                - message: Status message
 
-        Example:
-            get_niagara_metadata("/Game/VFX/NS_Fire", ["renderers"])
-            get_niagara_metadata("/Game/VFX/NS_Fire", ["module_list"])
-            get_niagara_metadata("/Game/VFX/NS_Fire", ["modules"],
-                                 emitter_name="FireCore", stage="Spawn")
-            get_niagara_metadata("/Game/VFX/NS_Fire", ["module_inputs"],
-                                 emitter_name="FireCore", module_name="SpawnRate", stage="Spawn")
+        Examples:
+            # Get all metadata
+            get_niagara_metadata(asset_path="/Game/VFX/NS_Fire")
+
+            # Get only emitters and parameters
+            get_niagara_metadata(
+                asset_path="/Game/VFX/NS_Fire",
+                fields=["emitters", "parameters"]
+            )
         """
-        params = {"asset_path": asset_path}
+        params = {
+            "asset_path": asset_path
+        }
         if fields is not None:
             params["fields"] = fields
-        if emitter_name is not None:
-            params["emitter_name"] = emitter_name
-        if module_name is not None:
-            params["module_name"] = module_name
-        if stage is not None:
-            params["stage"] = stage
+
         logger.info(f"Getting metadata for Niagara asset '{asset_path}'")
         return send_unreal_command("get_niagara_metadata", params)
 
@@ -149,11 +207,30 @@ def register_niagara_tools(mcp: FastMCP):
         Compile a Niagara System or Emitter.
 
         Args:
-            asset_path: Path to the Niagara asset
+            asset_path: Path to the Niagara asset to compile
+
+        Returns:
+            Dict containing:
+                - success: Whether compilation succeeded
+                - compilation_time_seconds: Time taken to compile
+                - warnings: List of compilation warnings
+                - errors: List of compilation errors (if failed)
+                - message: Status message
+
+        Examples:
+            # Compile a system
+            compile_niagara_asset(asset_path="/Game/VFX/NS_Fire")
         """
-        params = {"asset_path": asset_path}
+        params = {
+            "asset_path": asset_path
+        }
+
         logger.info(f"Compiling Niagara asset '{asset_path}'")
         return send_unreal_command("compile_niagara_asset", params)
+
+    # =========================================================================
+    # Feature 2: Module System
+    # =========================================================================
 
     @mcp.tool()
     def add_module_to_emitter(
@@ -169,10 +246,34 @@ def register_niagara_tools(mcp: FastMCP):
 
         Args:
             system_path: Path to the Niagara System
-            emitter_name: Emitter name within the system
+            emitter_name: Name of the emitter within the system
             module_path: Path to the module script asset
-            stage: "Spawn"|"Update"|"Event"
+            stage: Stage to add to ("Spawn", "Update", "Event")
             index: Position in stack (-1 = end)
+
+        Returns:
+            Dict containing:
+                - success: Whether the module was added
+                - node_id: Identifier for the added module node
+                - message: Status message
+
+        Examples:
+            # Add a spawn module
+            add_module_to_emitter(
+                system_path="/Game/VFX/NS_Fire",
+                emitter_name="Flames",
+                module_path="/Niagara/Modules/Location/SphereLocation",
+                stage="Spawn"
+            )
+
+            # Add to specific position
+            add_module_to_emitter(
+                system_path="/Game/VFX/NS_Fire",
+                emitter_name="Flames",
+                module_path="/Niagara/Modules/Update/Gravity",
+                stage="Update",
+                index=0
+            )
         """
         params = {
             "system_path": system_path,
@@ -181,6 +282,7 @@ def register_niagara_tools(mcp: FastMCP):
             "stage": stage,
             "index": index
         }
+
         logger.info(f"Adding module '{module_path}' to emitter '{emitter_name}' stage '{stage}'")
         return send_unreal_command("add_module_to_emitter", params)
 
@@ -195,22 +297,34 @@ def register_niagara_tools(mcp: FastMCP):
         Search available Niagara modules in the asset registry.
 
         Args:
-            search_query: Text to search in module names
-            stage_filter: "Spawn"|"Update"|"Event"|"" (all)
-            max_results: Maximum results to return
+            search_query: Text to search for in module names
+            stage_filter: Filter by compatible stage ("Spawn", "Update", "Event", "")
+            max_results: Maximum number of results
 
         Returns:
-            Dict with: modules[] (path, name, description), count
+            Dict containing:
+                - success: Whether the search completed
+                - modules: List of matching modules with path, name, description
+                - count: Number of modules found
+                - message: Status message
 
-        Example:
-            search_niagara_modules("Location", stage_filter="Spawn")
+        Examples:
+            # Search for location modules
+            search_niagara_modules(search_query="Location")
+
+            # Search for spawn-compatible modules
+            search_niagara_modules(
+                search_query="",
+                stage_filter="Spawn"
+            )
         """
         params = {
             "search_query": search_query,
             "stage_filter": stage_filter,
             "max_results": max_results
         }
-        logger.info(f"Searching Niagara modules query='{search_query}', stage='{stage_filter}'")
+
+        logger.info(f"Searching Niagara modules with query='{search_query}', stage='{stage_filter}'")
         return send_unreal_command("search_niagara_modules", params)
 
     @mcp.tool()
@@ -229,55 +343,40 @@ def register_niagara_tools(mcp: FastMCP):
 
         Args:
             system_path: Path to the Niagara System
-            emitter_name: Emitter name
-            module_name: Module name
+            emitter_name: Name of the emitter
+            module_name: Name of the module
             stage: Stage containing the module
-            input_name: Input parameter name
-            value: Value to set (parsed by C++ side)
-            value_type: "float"|"vector"|"int"|"bool"|"auto"
-        """
-        params = {
-            "system_path": system_path,
-            "emitter_name": emitter_name,
-            "module_name": module_name,
-            "stage": stage,
-            "input_name": input_name,
-            "value": str(value),
-            "value_type": value_type
-        }
-        logger.info(f"Setting module input '{input_name}' on '{module_name}' to '{value}'")
-        return send_unreal_command("set_module_input", params)
+            input_name: Name of the input parameter
+            value: Value to set (as string, will be parsed)
+            value_type: Type hint ("float", "vector", "int", "bool", "auto")
 
-    @mcp.tool()
-    def move_module(
-        ctx: Context,
-        system_path: str,
-        emitter_name: str,
-        module_name: str,
-        stage: str,
-        new_index: int
-    ) -> Dict[str, Any]:
-        """
-        Move a module to a new position within its stage.
+        Returns:
+            Dict containing:
+                - success: Whether the input was set
+                - previous_value: Previous value
+                - new_value: New value that was set
+                - message: Status message
 
-        This is critical for proper module execution order. For example,
-        force modules (like CurlNoiseForce) must be positioned BEFORE
-        SolveForcesAndVelocity for forces to be applied correctly.
-
-        Args:
-            system_path: Path to the Niagara System
-            emitter_name: Emitter name
-            module_name: Module name to move
-            stage: Stage containing the module ("Spawn"|"Update")
-            new_index: New position index (0-based)
-
-        Example:
-            move_module(
+        Examples:
+            # Set a float input
+            set_module_input(
                 system_path="/Game/VFX/NS_Fire",
-                emitter_name="FireCore",
-                module_name="CurlNoiseForce",
-                stage="Update",
-                new_index=3  # Move before SolveForcesAndVelocity
+                emitter_name="Flames",
+                module_name="Sphere Location",
+                stage="Spawn",
+                input_name="Radius",
+                value="100.0"
+            )
+
+            # Set a vector input
+            set_module_input(
+                system_path="/Game/VFX/NS_Fire",
+                emitter_name="Flames",
+                module_name="Add Velocity",
+                stage="Spawn",
+                input_name="Velocity",
+                value="0,0,500",
+                value_type="vector"
             )
         """
         params = {
@@ -285,10 +384,17 @@ def register_niagara_tools(mcp: FastMCP):
             "emitter_name": emitter_name,
             "module_name": module_name,
             "stage": stage,
-            "new_index": new_index
+            "input_name": input_name,
+            "value": str(value),  # Convert to string for C++ side
+            "value_type": value_type
         }
-        logger.info(f"Moving module '{module_name}' to index {new_index} in stage '{stage}'")
-        return send_unreal_command("move_module", params)
+
+        logger.info(f"Setting module input '{input_name}' on '{module_name}' to '{value}'")
+        return send_unreal_command("set_module_input", params)
+
+    # =========================================================================
+    # Feature 3: Parameters
+    # =========================================================================
 
     @mcp.tool()
     def add_niagara_parameter(
@@ -304,10 +410,33 @@ def register_niagara_tools(mcp: FastMCP):
 
         Args:
             system_path: Path to the Niagara System
-            parameter_name: Parameter name (e.g., "User.SpawnRate")
-            parameter_type: "Float"|"Int"|"Bool"|"Vector"|"LinearColor"
-            default_value: Optional default value as string
-            scope: "user"|"system"|"emitter"
+            parameter_name: Name of the parameter (e.g., "User.SpawnRate")
+            parameter_type: Type ("Float", "Int", "Bool", "Vector", "LinearColor")
+            default_value: Optional default value (as string)
+            scope: Parameter scope ("user", "system", "emitter")
+
+        Returns:
+            Dict containing:
+                - success: Whether the parameter was added
+                - parameter_info: Details about the added parameter
+                - message: Status message
+
+        Examples:
+            # Add a float parameter
+            add_niagara_parameter(
+                system_path="/Game/VFX/NS_Fire",
+                parameter_name="User.Intensity",
+                parameter_type="Float",
+                default_value="1.0"
+            )
+
+            # Add a color parameter
+            add_niagara_parameter(
+                system_path="/Game/VFX/NS_Fire",
+                parameter_name="User.FlameColor",
+                parameter_type="LinearColor",
+                default_value="1.0,0.5,0.0,1.0"
+            )
         """
         params = {
             "system_path": system_path,
@@ -317,6 +446,7 @@ def register_niagara_tools(mcp: FastMCP):
         }
         if default_value:
             params["default_value"] = default_value
+
         logger.info(f"Adding parameter '{parameter_name}' ({parameter_type}) to '{system_path}'")
         return send_unreal_command("add_niagara_parameter", params)
 
@@ -332,16 +462,36 @@ def register_niagara_tools(mcp: FastMCP):
 
         Args:
             system_path: Path to the Niagara System
-            parameter_name: Parameter name
-            value: New default value (parsed by C++ side)
+            parameter_name: Name of the parameter
+            value: New default value (as string, will be parsed by C++ side)
+
+        Returns:
+            Dict containing:
+                - success: Whether the parameter was set
+                - previous_value: Previous value
+                - new_value: New value that was set
+                - message: Status message
+
+        Examples:
+            # Set a float parameter
+            set_niagara_parameter(
+                system_path="/Game/VFX/NS_Fire",
+                parameter_name="User.Intensity",
+                value=2.5
+            )
         """
         params = {
             "system_path": system_path,
             "parameter_name": parameter_name,
             "value": str(value)
         }
+
         logger.info(f"Setting parameter '{parameter_name}' to '{value}' on '{system_path}'")
         return send_unreal_command("set_niagara_parameter", params)
+
+    # =========================================================================
+    # Feature 4: Data Interfaces
+    # =========================================================================
 
     @mcp.tool()
     def add_data_interface(
@@ -356,9 +506,34 @@ def register_niagara_tools(mcp: FastMCP):
 
         Args:
             system_path: Path to the Niagara System
-            emitter_name: Emitter name
-            interface_type: "StaticMesh"|"SkeletalMesh"|"Spline"|"Audio"|"Curve"|"Texture"|"RenderTarget"|"Grid2D"|"Grid3D"
-            interface_name: Optional custom name
+            emitter_name: Name of the emitter
+            interface_type: Type of data interface:
+                - "StaticMesh"
+                - "SkeletalMesh"
+                - "Spline"
+                - "Audio"
+                - "Curve"
+                - "Texture"
+                - "RenderTarget"
+                - "Grid2D"
+                - "Grid3D"
+            interface_name: Optional custom name for the interface
+
+        Returns:
+            Dict containing:
+                - success: Whether the data interface was added
+                - interface_id: Identifier for the added interface
+                - available_properties: Properties that can be configured
+                - message: Status message
+
+        Examples:
+            # Add a static mesh data interface
+            add_data_interface(
+                system_path="/Game/VFX/NS_Fire",
+                emitter_name="Flames",
+                interface_type="StaticMesh",
+                interface_name="FireMesh"
+            )
         """
         params = {
             "system_path": system_path,
@@ -367,6 +542,7 @@ def register_niagara_tools(mcp: FastMCP):
         }
         if interface_name:
             params["interface_name"] = interface_name
+
         logger.info(f"Adding data interface '{interface_type}' to emitter '{emitter_name}'")
         return send_unreal_command("add_data_interface", params)
 
@@ -384,10 +560,25 @@ def register_niagara_tools(mcp: FastMCP):
 
         Args:
             system_path: Path to the Niagara System
-            emitter_name: Emitter name
-            interface_name: Data interface name
-            property_name: Property to set (e.g., "Mesh", "Source")
-            property_value: Value (asset path for references, or numeric/bool)
+            emitter_name: Name of the emitter
+            interface_name: Name of the data interface
+            property_name: Property to set (e.g., "Mesh", "Source", "SamplingRegion")
+            property_value: Value to set (asset path for references, or numeric/bool values)
+
+        Returns:
+            Dict containing:
+                - success: Whether the property was set
+                - message: Status message
+
+        Examples:
+            # Set the mesh for a StaticMesh data interface
+            set_data_interface_property(
+                system_path="/Game/VFX/NS_Fire",
+                emitter_name="Flames",
+                interface_name="FireMesh",
+                property_name="Mesh",
+                property_value="/Game/Meshes/SM_Flame"
+            )
         """
         params = {
             "system_path": system_path,
@@ -396,8 +587,13 @@ def register_niagara_tools(mcp: FastMCP):
             "property_name": property_name,
             "property_value": str(property_value)
         }
+
         logger.info(f"Setting data interface property '{property_name}' to '{property_value}'")
         return send_unreal_command("set_data_interface_property", params)
+
+    # =========================================================================
+    # Feature 5: Renderers
+    # =========================================================================
 
     @mcp.tool()
     def add_renderer(
@@ -412,9 +608,38 @@ def register_niagara_tools(mcp: FastMCP):
 
         Args:
             system_path: Path to the Niagara System
-            emitter_name: Emitter name
-            renderer_type: "Sprite"|"Mesh"|"Ribbon"|"Light"|"Decal"|"Component"
+            emitter_name: Name of the emitter
+            renderer_type: Type of renderer:
+                - "Sprite" (UNiagaraSpriteRendererProperties)
+                - "Mesh" (UNiagaraMeshRendererProperties)
+                - "Ribbon" (UNiagaraRibbonRendererProperties)
+                - "Light" (UNiagaraLightRendererProperties)
+                - "Decal" (UNiagaraDecalRendererProperties)
+                - "Component" (UNiagaraComponentRendererProperties)
             renderer_name: Optional custom name
+
+        Returns:
+            Dict containing:
+                - success: Whether the renderer was added
+                - renderer_id: Identifier for the added renderer
+                - available_properties: Properties that can be configured
+                - message: Status message
+
+        Examples:
+            # Add a sprite renderer
+            add_renderer(
+                system_path="/Game/VFX/NS_Fire",
+                emitter_name="Flames",
+                renderer_type="Sprite"
+            )
+
+            # Add a mesh renderer
+            add_renderer(
+                system_path="/Game/VFX/NS_Debris",
+                emitter_name="Rocks",
+                renderer_type="Mesh",
+                renderer_name="RockMeshRenderer"
+            )
         """
         params = {
             "system_path": system_path,
@@ -423,6 +648,7 @@ def register_niagara_tools(mcp: FastMCP):
         }
         if renderer_name:
             params["renderer_name"] = renderer_name
+
         logger.info(f"Adding renderer '{renderer_type}' to emitter '{emitter_name}'")
         return send_unreal_command("add_renderer", params)
 
@@ -440,10 +666,38 @@ def register_niagara_tools(mcp: FastMCP):
 
         Args:
             system_path: Path to the Niagara System
-            emitter_name: Emitter name
-            renderer_name: Renderer name or index ("Renderer_0")
-            property_name: Property (Sprite: "Material", Mesh: "ParticleMesh", Ribbon: "RibbonWidth", etc.)
-            property_value: Value (asset path, numeric, or boolean)
+            emitter_name: Name of the emitter
+            renderer_name: Name of the renderer (or index like "Renderer_0")
+            property_name: Property to set. Common properties:
+                - Sprite: "Material", "SubImageSize", "FacingMode", "Alignment"
+                - Mesh: "ParticleMesh", "OverrideMaterials"
+                - Ribbon: "Material", "FacingMode", "RibbonWidth"
+                - Light: "LightExponent", "Radius", "ColorAdd"
+            property_value: Value to set (asset path, numeric, or boolean)
+
+        Returns:
+            Dict containing:
+                - success: Whether the property was set
+                - message: Status message
+
+        Examples:
+            # Set material on a sprite renderer
+            set_renderer_property(
+                system_path="/Game/VFX/NS_Fire",
+                emitter_name="Flames",
+                renderer_name="SpriteRenderer",
+                property_name="Material",
+                property_value="/Game/Materials/M_Fire"
+            )
+
+            # Set mesh on a mesh renderer
+            set_renderer_property(
+                system_path="/Game/VFX/NS_Debris",
+                emitter_name="Rocks",
+                renderer_name="RockMeshRenderer",
+                property_name="ParticleMesh",
+                property_value="/Game/Meshes/SM_Rock"
+            )
         """
         params = {
             "system_path": system_path,
@@ -452,8 +706,13 @@ def register_niagara_tools(mcp: FastMCP):
             "property_name": property_name,
             "property_value": str(property_value)
         }
+
         logger.info(f"Setting renderer property '{property_name}' to '{property_value}'")
         return send_unreal_command("set_renderer_property", params)
+
+    # =========================================================================
+    # Feature 6: Level Integration
+    # =========================================================================
 
     @mcp.tool()
     def spawn_niagara_actor(
@@ -470,9 +729,39 @@ def register_niagara_tools(mcp: FastMCP):
         Args:
             system_path: Path to the Niagara System asset
             actor_name: Name for the spawned actor
-            location: [X, Y, Z] world location
-            rotation: [Pitch, Yaw, Roll] in degrees
+            location: [X, Y, Z] world location (default: [0, 0, 0])
+            rotation: [Pitch, Yaw, Roll] rotation in degrees (default: [0, 0, 0])
             auto_activate: Whether to auto-activate on spawn
+
+        Returns:
+            Dict containing:
+                - success: Whether the actor was spawned
+                - actor_name: Name of the spawned actor
+                - component_info: Information about the Niagara component
+                - message: Status message
+
+        Examples:
+            # Spawn at origin
+            spawn_niagara_actor(
+                system_path="/Game/VFX/NS_Fire",
+                actor_name="FireEffect_1"
+            )
+
+            # Spawn at specific location
+            spawn_niagara_actor(
+                system_path="/Game/VFX/NS_Fire",
+                actor_name="FireEffect_2",
+                location=[100.0, 200.0, 50.0],
+                rotation=[0.0, 45.0, 0.0]
+            )
+
+            # Spawn inactive (for later activation)
+            spawn_niagara_actor(
+                system_path="/Game/VFX/NS_Explosion",
+                actor_name="Explosion_Preset",
+                location=[0.0, 0.0, 100.0],
+                auto_activate=False
+            )
         """
         params = {
             "system_path": system_path,
@@ -483,7 +772,6 @@ def register_niagara_tools(mcp: FastMCP):
             params["location"] = location
         if rotation is not None:
             params["rotation"] = rotation
+
         logger.info(f"Spawning Niagara actor '{actor_name}' with system '{system_path}'")
         return send_unreal_command("spawn_niagara_actor", params)
-
-    logger.info("Niagara tools registered successfully")

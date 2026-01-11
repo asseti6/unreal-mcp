@@ -53,6 +53,13 @@ public:
                                                const FVector2D& ParentPosition = FVector2D(0.0f, 0.0f),
                                                const FVector2D& ParentSize = FVector2D(300.0f, 200.0f)) override;
 
+    virtual bool CreateParentAndChildWidgetComponents(const FString& BlueprintName, const FString& ParentComponentName,
+                                                    const FString& ChildComponentName, const FString& ParentComponentType = TEXT("Border"),
+                                                    const FString& ChildComponentType = TEXT("TextBlock"),
+                                                    const FVector2D& ParentPosition = FVector2D(0.0f, 0.0f),
+                                                    const FVector2D& ParentSize = FVector2D(300.0f, 200.0f),
+                                                    const TSharedPtr<FJsonObject>& ChildAttributes = nullptr) override;
+
     virtual bool GetWidgetComponentLayout(const FString& BlueprintName, TSharedPtr<FJsonObject>& OutLayoutInfo) override;
 
     virtual bool CaptureWidgetScreenshot(const FString& BlueprintName, int32 Width, int32 Height,
@@ -67,6 +74,63 @@ public:
 
     virtual bool ReorderWidgetChildren(const FString& WidgetName, const FString& ContainerName,
                                       const TArray<FString>& ChildOrder) override;
+
+    /**
+     * Set the design size mode for a widget blueprint
+     * @param WidgetName - Name of the widget blueprint
+     * @param DesignSizeMode - "DesiredOnScreen", "Custom", "FillScreen", "CustomOnScreen"
+     * @param CustomWidth - Custom width (when using Custom mode)
+     * @param CustomHeight - Custom height (when using Custom mode)
+     * @param OutError - Error message if failed
+     * @return true if successful
+     */
+    bool SetWidgetDesignSizeMode(
+        const FString& WidgetName,
+        const FString& DesignSizeMode,
+        int32 CustomWidth,
+        int32 CustomHeight,
+        FString& OutError
+    );
+
+    /**
+     * Change the parent class of a widget blueprint
+     * @param WidgetName - Name of the widget blueprint
+     * @param NewParentClass - Name or path of the new parent class
+     * @param OutOldParent - Previous parent class name (output)
+     * @param OutError - Error message if failed
+     * @return true if successful
+     */
+    bool SetWidgetParentClass(
+        const FString& WidgetName,
+        const FString& NewParentClass,
+        FString& OutOldParent,
+        FString& OutError
+    );
+
+    // =========================================================================
+    // WIDGET ANIMATION METHODS (IUMGService interface)
+    // =========================================================================
+
+    virtual bool CreateWidgetAnimation(const FString& WidgetName, const FString& AnimationName,
+                                       float Duration, FString& OutError) override;
+
+    virtual bool AddAnimationTrack(const FString& WidgetName, const FString& AnimationName,
+                                   const FString& TargetComponent, const FString& PropertyName,
+                                   const FString& TrackType, FString& OutError) override;
+
+    virtual bool AddAnimationKeyframe(const FString& WidgetName, const FString& AnimationName,
+                                      const FString& TargetComponent, const FString& PropertyName,
+                                      float Time, const TSharedPtr<FJsonValue>& Value, FString& OutError) override;
+
+    virtual bool SetAnimationProperties(const FString& WidgetName, const FString& AnimationName,
+                                        float Duration, const FString& LoopMode, int32 LoopCount,
+                                        TArray<FString>& OutModifiedProperties, FString& OutError) override;
+
+    virtual bool GetWidgetAnimations(const FString& WidgetName, TArray<TSharedPtr<FJsonValue>>& OutAnimations,
+                                     FString& OutError) override;
+
+    virtual bool DeleteWidgetAnimation(const FString& WidgetName, const FString& AnimationName,
+                                       FString& OutError) override;
 
 private:
     /** Private constructor for singleton pattern */

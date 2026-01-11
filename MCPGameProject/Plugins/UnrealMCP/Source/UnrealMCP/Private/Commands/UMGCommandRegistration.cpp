@@ -6,12 +6,16 @@
 #include "Commands/UMG/AddWidgetComponentCommand.h"
 #include "Commands/UMG/SetWidgetPropertyCommand.h"
 #include "Commands/UMG/AddChildWidgetCommand.h"
+#include "Commands/UMG/CreateParentChildWidgetCommand.h"
 #include "Commands/UMG/SetWidgetPlacementCommand.h"
 #include "Commands/UMG/CaptureWidgetScreenshotCommand.h"
 #include "Commands/UMG/GetWidgetBlueprintMetadataCommand.h"
 #include "Commands/UMG/CreateWidgetInputHandlerCommand.h"
 #include "Commands/UMG/RemoveWidgetFunctionGraphCommand.h"
 #include "Commands/UMG/ReorderWidgetChildrenCommand.h"
+#include "Commands/UMG/SetWidgetDesignSizeCommand.h"
+#include "Commands/UMG/SetWidgetParentClassCommand.h"
+#include "Commands/UMG/WidgetAnimationCommands.h"
 #include "Services/UMG/UMGService.h"
 
 // Static member definition
@@ -31,14 +35,25 @@ void FUMGCommandRegistration::RegisterAllUMGCommands()
     RegisterAddWidgetComponentCommand();
     RegisterSetWidgetPropertyCommand();
     RegisterAddChildWidgetCommand();
+    RegisterCreateParentChildWidgetCommand();
     RegisterSetWidgetPlacementCommand();
     RegisterCaptureWidgetScreenshotCommand();
     RegisterGetWidgetBlueprintMetadataCommand();
     RegisterCreateWidgetInputHandlerCommand();
     RegisterRemoveWidgetFunctionGraphCommand();
     RegisterReorderWidgetChildrenCommand();
+    RegisterSetWidgetDesignSizeCommand();
+    RegisterSetWidgetParentClassCommand();
 
-    // TODO: Register remaining 22 UMG commands when their classes are implemented
+    // Widget Animation commands
+    RegisterCreateWidgetAnimationCommand();
+    RegisterAddAnimationTrackCommand();
+    RegisterAddAnimationKeyframeCommand();
+    RegisterSetAnimationPropertiesCommand();
+    RegisterGetWidgetAnimationsCommand();
+    RegisterDeleteWidgetAnimationCommand();
+
+    // TODO: Register remaining UMG commands when their classes are implemented
     // For now, we'll register the core commands that exist
     
     UE_LOG(LogTemp, Log, TEXT("FUMGCommandRegistration::RegisterAllUMGCommands: Registered %d UMG commands"), 
@@ -231,6 +246,12 @@ void FUMGCommandRegistration::RegisterAddChildWidgetCommand()
     RegisterAndTrackCommand(Command);
 }
 
+void FUMGCommandRegistration::RegisterCreateParentChildWidgetCommand()
+{
+    TSharedPtr<FCreateParentChildWidgetCommand> Command = MakeShared<FCreateParentChildWidgetCommand>(FUMGService::Get());
+    RegisterAndTrackCommand(Command);
+}
+
 void FUMGCommandRegistration::RegisterCaptureWidgetScreenshotCommand()
 {
     // Create shared pointer to the UMG service singleton for the new architecture
@@ -263,6 +284,22 @@ void FUMGCommandRegistration::RegisterReorderWidgetChildrenCommand()
     RegisterAndTrackCommand(Command);
 }
 
+void FUMGCommandRegistration::RegisterSetWidgetDesignSizeCommand()
+{
+    // Create shared pointer to the UMG service singleton for the new architecture
+    TSharedPtr<IUMGService> UMGServicePtr(&FUMGService::Get(), [](IUMGService*){});
+    TSharedPtr<FSetWidgetDesignSizeCommand> Command = MakeShared<FSetWidgetDesignSizeCommand>(UMGServicePtr);
+    RegisterAndTrackCommand(Command);
+}
+
+void FUMGCommandRegistration::RegisterSetWidgetParentClassCommand()
+{
+    // Create shared pointer to the UMG service singleton for the new architecture
+    TSharedPtr<IUMGService> UMGServicePtr(&FUMGService::Get(), [](IUMGService*){});
+    TSharedPtr<FSetWidgetParentClassCommand> Command = MakeShared<FSetWidgetParentClassCommand>(UMGServicePtr);
+    RegisterAndTrackCommand(Command);
+}
+
 void FUMGCommandRegistration::RegisterAndTrackCommand(TSharedPtr<IUnrealMCPCommand> Command)
 {
     if (!Command.IsValid())
@@ -288,4 +325,50 @@ void FUMGCommandRegistration::RegisterAndTrackCommand(TSharedPtr<IUnrealMCPComma
     {
         UE_LOG(LogTemp, Error, TEXT("FUMGCommandRegistration::RegisterAndTrackCommand: Failed to register command '%s'"), *CommandName);
     }
+}
+
+// =========================================================================
+// Widget Animation Command Registration
+// =========================================================================
+
+void FUMGCommandRegistration::RegisterCreateWidgetAnimationCommand()
+{
+    TSharedPtr<IUMGService> UMGServicePtr(&FUMGService::Get(), [](IUMGService*){});
+    TSharedPtr<FCreateWidgetAnimationCommand> Command = MakeShared<FCreateWidgetAnimationCommand>(UMGServicePtr);
+    RegisterAndTrackCommand(Command);
+}
+
+void FUMGCommandRegistration::RegisterAddAnimationTrackCommand()
+{
+    TSharedPtr<IUMGService> UMGServicePtr(&FUMGService::Get(), [](IUMGService*){});
+    TSharedPtr<FAddAnimationTrackCommand> Command = MakeShared<FAddAnimationTrackCommand>(UMGServicePtr);
+    RegisterAndTrackCommand(Command);
+}
+
+void FUMGCommandRegistration::RegisterAddAnimationKeyframeCommand()
+{
+    TSharedPtr<IUMGService> UMGServicePtr(&FUMGService::Get(), [](IUMGService*){});
+    TSharedPtr<FAddAnimationKeyframeCommand> Command = MakeShared<FAddAnimationKeyframeCommand>(UMGServicePtr);
+    RegisterAndTrackCommand(Command);
+}
+
+void FUMGCommandRegistration::RegisterSetAnimationPropertiesCommand()
+{
+    TSharedPtr<IUMGService> UMGServicePtr(&FUMGService::Get(), [](IUMGService*){});
+    TSharedPtr<FSetAnimationPropertiesCommand> Command = MakeShared<FSetAnimationPropertiesCommand>(UMGServicePtr);
+    RegisterAndTrackCommand(Command);
+}
+
+void FUMGCommandRegistration::RegisterGetWidgetAnimationsCommand()
+{
+    TSharedPtr<IUMGService> UMGServicePtr(&FUMGService::Get(), [](IUMGService*){});
+    TSharedPtr<FGetWidgetAnimationsCommand> Command = MakeShared<FGetWidgetAnimationsCommand>(UMGServicePtr);
+    RegisterAndTrackCommand(Command);
+}
+
+void FUMGCommandRegistration::RegisterDeleteWidgetAnimationCommand()
+{
+    TSharedPtr<IUMGService> UMGServicePtr(&FUMGService::Get(), [](IUMGService*){});
+    TSharedPtr<FDeleteWidgetAnimationCommand> Command = MakeShared<FDeleteWidgetAnimationCommand>(UMGServicePtr);
+    RegisterAndTrackCommand(Command);
 }

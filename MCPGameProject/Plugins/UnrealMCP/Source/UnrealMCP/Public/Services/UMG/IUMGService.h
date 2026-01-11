@@ -135,6 +135,25 @@ public:
                                                const FVector2D& ParentSize = FVector2D(300.0f, 200.0f)) = 0;
 
     /**
+     * Create a new parent widget component with a new child component
+     * @param BlueprintName - Name of the target widget blueprint
+     * @param ParentComponentName - Name for the new parent component
+     * @param ChildComponentName - Name for the new child component
+     * @param ParentComponentType - Type of parent component to create
+     * @param ChildComponentType - Type of child component to create
+     * @param ParentPosition - Position of the parent component
+     * @param ParentSize - Size of the parent component
+     * @param ChildAttributes - Additional attributes for the child component
+     * @return true if both components were created successfully
+     */
+    virtual bool CreateParentAndChildWidgetComponents(const FString& BlueprintName, const FString& ParentComponentName,
+                                                    const FString& ChildComponentName, const FString& ParentComponentType = TEXT("Border"),
+                                                    const FString& ChildComponentType = TEXT("TextBlock"),
+                                                    const FVector2D& ParentPosition = FVector2D(0.0f, 0.0f),
+                                                    const FVector2D& ParentSize = FVector2D(300.0f, 200.0f),
+                                                    const TSharedPtr<FJsonObject>& ChildAttributes = nullptr) = 0;
+
+    /**
      * Get hierarchical layout information for all components within a UMG Widget Blueprint
      * @param BlueprintName - Name of the target widget blueprint
      * @param OutLayoutInfo - Output JSON object containing hierarchical component layout information
@@ -204,4 +223,106 @@ public:
      */
     virtual bool ReorderWidgetChildren(const FString& WidgetName, const FString& ContainerName,
                                       const TArray<FString>& ChildOrder) = 0;
+
+    /**
+     * Set the design size mode for a widget blueprint
+     * @param WidgetName - Name of the widget blueprint
+     * @param DesignSizeMode - "DesiredOnScreen", "Custom", "FillScreen", "CustomOnScreen"
+     * @param CustomWidth - Custom width (when using Custom mode)
+     * @param CustomHeight - Custom height (when using Custom mode)
+     * @param OutError - Error message if failed
+     * @return true if successful
+     */
+    virtual bool SetWidgetDesignSizeMode(const FString& WidgetName, const FString& DesignSizeMode,
+                                        int32 CustomWidth, int32 CustomHeight, FString& OutError) = 0;
+
+    /**
+     * Change the parent class of a widget blueprint
+     * @param WidgetName - Name of the widget blueprint
+     * @param NewParentClass - Name or path of the new parent class
+     * @param OutOldParent - Previous parent class name (output)
+     * @param OutError - Error message if failed
+     * @return true if successful
+     */
+    virtual bool SetWidgetParentClass(const FString& WidgetName, const FString& NewParentClass,
+                                     FString& OutOldParent, FString& OutError) = 0;
+
+    // =========================================================================
+    // WIDGET ANIMATION METHODS
+    // =========================================================================
+
+    /**
+     * Create a new animation in a Widget Blueprint
+     * @param WidgetName - Name of the target widget blueprint
+     * @param AnimationName - Name for the new animation
+     * @param Duration - Duration of the animation in seconds
+     * @param OutError - Error message if creation failed
+     * @return true if animation was created successfully
+     */
+    virtual bool CreateWidgetAnimation(const FString& WidgetName, const FString& AnimationName,
+                                       float Duration, FString& OutError) = 0;
+
+    /**
+     * Add a property track to an animation
+     * @param WidgetName - Name of the target widget blueprint
+     * @param AnimationName - Name of the animation to add the track to
+     * @param TargetComponent - Name of the widget component to animate
+     * @param PropertyName - Name of the property to animate (e.g., "RenderOpacity", "RenderTransform")
+     * @param TrackType - Type of track: "Float", "Vector2D", "Color", "Transform"
+     * @param OutError - Error message if track creation failed
+     * @return true if track was added successfully
+     */
+    virtual bool AddAnimationTrack(const FString& WidgetName, const FString& AnimationName,
+                                   const FString& TargetComponent, const FString& PropertyName,
+                                   const FString& TrackType, FString& OutError) = 0;
+
+    /**
+     * Add a keyframe to an animation track
+     * @param WidgetName - Name of the target widget blueprint
+     * @param AnimationName - Name of the animation
+     * @param TargetComponent - Name of the widget component
+     * @param PropertyName - Name of the property to keyframe
+     * @param Time - Time in seconds for the keyframe
+     * @param Value - Value at this keyframe (float, vector, or color as JSON)
+     * @param OutError - Error message if keyframe creation failed
+     * @return true if keyframe was added successfully
+     */
+    virtual bool AddAnimationKeyframe(const FString& WidgetName, const FString& AnimationName,
+                                      const FString& TargetComponent, const FString& PropertyName,
+                                      float Time, const TSharedPtr<FJsonValue>& Value, FString& OutError) = 0;
+
+    /**
+     * Set properties on an animation (duration, loop mode, etc.)
+     * @param WidgetName - Name of the target widget blueprint
+     * @param AnimationName - Name of the animation
+     * @param Duration - New duration (-1 to skip)
+     * @param LoopMode - Loop mode: "Once", "Loop", "PingPong" (empty to skip)
+     * @param LoopCount - Number of loops (-1 for infinite, 0 to skip)
+     * @param OutModifiedProperties - List of properties that were modified
+     * @param OutError - Error message if setting properties failed
+     * @return true if at least one property was set successfully
+     */
+    virtual bool SetAnimationProperties(const FString& WidgetName, const FString& AnimationName,
+                                        float Duration, const FString& LoopMode, int32 LoopCount,
+                                        TArray<FString>& OutModifiedProperties, FString& OutError) = 0;
+
+    /**
+     * Get all animations in a Widget Blueprint
+     * @param WidgetName - Name of the target widget blueprint
+     * @param OutAnimations - Array of animation info objects
+     * @param OutError - Error message if retrieval failed
+     * @return true if animations were retrieved successfully
+     */
+    virtual bool GetWidgetAnimations(const FString& WidgetName, TArray<TSharedPtr<FJsonValue>>& OutAnimations,
+                                     FString& OutError) = 0;
+
+    /**
+     * Delete an animation from a Widget Blueprint
+     * @param WidgetName - Name of the target widget blueprint
+     * @param AnimationName - Name of the animation to delete
+     * @param OutError - Error message if deletion failed
+     * @return true if animation was deleted successfully
+     */
+    virtual bool DeleteWidgetAnimation(const FString& WidgetName, const FString& AnimationName,
+                                       FString& OutError) = 0;
 };

@@ -1,4 +1,5 @@
 #include "Services/UMG/WidgetValidationService.h"
+#include "Services/UMG/WidgetComponentService.h"
 #include "Utils/UnrealMCPCommonUtils.h"
 #include "WidgetBlueprint.h"
 #include "Blueprint/UserWidget.h"
@@ -306,12 +307,19 @@ FWidgetValidationResult FWidgetValidationService::ValidateWidgetType(const FStri
         return FWidgetValidationResult::Error(TEXT("Component type cannot be empty"));
     }
 
-    if (!ValidWidgetTypes.Contains(ComponentType))
+    // Check if it's a built-in widget type
+    if (ValidWidgetTypes.Contains(ComponentType))
     {
-        return FWidgetValidationResult::Error(FString::Printf(TEXT("Invalid widget component type: %s"), *ComponentType));
+        return FWidgetValidationResult::Success();
     }
 
-    return FWidgetValidationResult::Success();
+    // Check if it's a custom Widget Blueprint path (e.g., "WBP_MyWidget" or "/Game/UI/WBP_MyWidget")
+    if (FWidgetComponentService::IsCustomWidgetBlueprintPath(ComponentType))
+    {
+        return FWidgetValidationResult::Success();
+    }
+
+    return FWidgetValidationResult::Error(FString::Printf(TEXT("Invalid widget component type: %s"), *ComponentType));
 }
 
 FWidgetValidationResult FWidgetValidationService::ValidateWidgetProperty(const FString& ComponentType, const FString& PropertyName, 

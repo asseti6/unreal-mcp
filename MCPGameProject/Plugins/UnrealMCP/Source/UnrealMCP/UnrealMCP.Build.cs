@@ -76,7 +76,9 @@ public class UnrealMCP : ModuleRules
 				"NavigationSystem",        // For ANavMeshBoundsVolume
 				"AnimGraph",               // For Animation Blueprint nodes
 				"AnimationBlueprintLibrary", // For Animation Blueprint utilities
-				"GameplayTags"             // For FGameplayTag in animation variables
+				"GameplayTags",            // For FGameplayTag in animation variables
+				"MovieScene",              // For UWidgetAnimation/MovieScene core
+				"MovieSceneTracks"         // For MovieScene property tracks (Float, Color, etc.)
 			}
 		);
 		

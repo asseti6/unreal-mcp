@@ -39,6 +39,8 @@ private:
     static void RegisterCreateWidgetInputHandlerCommand();
     static void RegisterRemoveWidgetFunctionGraphCommand();
     static void RegisterReorderWidgetChildrenCommand();
+    static void RegisterSetWidgetDesignSizeCommand();
+    static void RegisterSetWidgetParentClassCommand();
 
     // Widget-specific add commands
     static void RegisterAddWidgetSwitcherCommand();
@@ -61,7 +63,16 @@ private:
     
     // Parent-child widget commands
     static void RegisterAddChildWidgetCommand();
-    
+    static void RegisterCreateParentChildWidgetCommand();
+
+    // Widget Animation commands
+    static void RegisterCreateWidgetAnimationCommand();
+    static void RegisterAddAnimationTrackCommand();
+    static void RegisterAddAnimationKeyframeCommand();
+    static void RegisterSetAnimationPropertiesCommand();
+    static void RegisterGetWidgetAnimationsCommand();
+    static void RegisterDeleteWidgetAnimationCommand();
+
     /**
      * Helper to register a command and track it for cleanup
      * @param Command - Command to register

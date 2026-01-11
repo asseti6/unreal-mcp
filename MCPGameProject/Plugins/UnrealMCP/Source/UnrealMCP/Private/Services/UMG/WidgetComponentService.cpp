@@ -42,6 +42,7 @@
 #include "Components/NativeWidgetHost.h"
 #include "Components/BackgroundBlur.h"
 #include "Components/UniformGridPanel.h"
+#include "AssetRegistry/AssetRegistryModule.h"
 
 FWidgetComponentService::FWidgetComponentService()
 {
@@ -275,6 +276,18 @@ UWidget* FWidgetComponentService::CreateWidgetComponent(
     {
         CreatedWidget = CreateUniformGridPanel(WidgetBlueprint, ComponentName, KwargsObject);
     }
+    // Check for custom Widget Blueprint path (e.g., "WBP_MyWidget" or "/Game/UI/WBP_MyWidget")
+    else if (IsCustomWidgetBlueprintPath(ComponentType))
+    {
+        FString ResolvedPath = ResolveWidgetBlueprintPath(ComponentType);
+        if (ResolvedPath.IsEmpty())
+        {
+            OutError = FString::Printf(TEXT("Could not find Widget Blueprint: %s"), *ComponentType);
+            UE_LOG(LogTemp, Error, TEXT("%s"), *OutError);
+            return nullptr;
+        }
+        CreatedWidget = CreateCustomWidgetBlueprint(WidgetBlueprint, ComponentName, ResolvedPath, KwargsObject);
+    }
     // Default case for unsupported types
     else
     {
@@ -283,7 +296,7 @@ UWidget* FWidgetComponentService::CreateWidgetComponent(
         FString SupportedTypesStr = FString::Join(SupportedTypes, TEXT(", "));
 
         OutError = FString::Printf(
-            TEXT("Unsupported component type '%s'. Note: To embed another Widget Blueprint, use 'NamedSlot' as a placeholder or create the widget at runtime in Construct. Supported types: %s"),
+            TEXT("Unsupported component type '%s'. Note: You can use Widget Blueprint paths like 'WBP_MyWidget' or '/Game/UI/WBP_MyWidget'. Supported built-in types: %s"),
             *ComponentType, *SupportedTypesStr);
         UE_LOG(LogTemp, Error, TEXT("%s"), *OutError);
         return nullptr;
@@ -643,12 +656,181 @@ void FWidgetComponentService::SaveWidgetBlueprint(UWidgetBlueprint* WidgetBluepr
 
     // Mark the blueprint as dirty
     WidgetBlueprint->MarkPackageDirty();
-    
+
     // Compile the blueprint
     FKismetEditorUtilities::CompileBlueprint(WidgetBlueprint);
-    
+
     // Save the asset
     UEditorAssetLibrary::SaveAsset(WidgetBlueprint->GetPathName(), false);
-    
+
     UE_LOG(LogTemp, Log, TEXT("Saved widget blueprint: %s"), *WidgetBlueprint->GetName());
+}
+
+bool FWidgetComponentService::IsCustomWidgetBlueprintPath(const FString& ComponentType)
+{
+    // Check if this looks like a widget blueprint reference:
+    // - Starts with WBP_ (widget blueprint naming convention)
+    // - Starts with /Game/ (full path)
+    // - Contains "Widget" in the name
+
+    if (ComponentType.StartsWith(TEXT("WBP_"), ESearchCase::IgnoreCase))
+    {
+        return true;
+    }
+
+    if (ComponentType.StartsWith(TEXT("/Game/")))
+    {
+        return true;
+    }
+
+    // Also accept paths that look like widget blueprints even without WBP_ prefix
+    // This allows using shorter names like "InventorySlot" if the asset exists
+    if (ComponentType.Contains(TEXT("Widget"), ESearchCase::IgnoreCase))
+    {
+        return true;
+    }
+
+    return false;
+}
+
+FString FWidgetComponentService::ResolveWidgetBlueprintPath(const FString& ComponentType)
+{
+    // If it's already a full path, check if it exists
+    if (ComponentType.StartsWith(TEXT("/Game/")))
+    {
+        FString AssetPath = ComponentType;
+        // Ensure the path includes the asset name properly
+        if (!AssetPath.Contains(TEXT(".")))
+        {
+            AssetPath = FString::Printf(TEXT("%s.%s"), *AssetPath, *FPaths::GetBaseFilename(AssetPath));
+        }
+
+        if (UEditorAssetLibrary::DoesAssetExist(AssetPath))
+        {
+            return AssetPath;
+        }
+
+        // Try without the .AssetName suffix
+        FString PathWithoutSuffix = ComponentType;
+        if (UEditorAssetLibrary::DoesAssetExist(PathWithoutSuffix))
+        {
+            return PathWithoutSuffix;
+        }
+
+        return FString();
+    }
+
+    // Search for the widget blueprint in common locations
+    TArray<FString> SearchPaths = {
+        TEXT("/Game/UI/Widgets"),
+        TEXT("/Game/UI/Widgets/Menus"),
+        TEXT("/Game/UI/Widgets/Menus/Inventory"),
+        TEXT("/Game/UI/Widgets/HUD"),
+        TEXT("/Game/UI"),
+        TEXT("/Game/Widgets"),
+        TEXT("/Game")
+    };
+
+    FString SearchName = ComponentType;
+    // Remove any file extension if present
+    if (SearchName.Contains(TEXT(".")))
+    {
+        SearchName = FPaths::GetBaseFilename(SearchName);
+    }
+
+    for (const FString& BasePath : SearchPaths)
+    {
+        FString FullPath = FString::Printf(TEXT("%s/%s"), *BasePath, *SearchName);
+        FString AssetPath = FString::Printf(TEXT("%s.%s"), *FullPath, *SearchName);
+
+        if (UEditorAssetLibrary::DoesAssetExist(AssetPath))
+        {
+            UE_LOG(LogTemp, Log, TEXT("Resolved widget blueprint '%s' to '%s'"), *ComponentType, *AssetPath);
+            return AssetPath;
+        }
+
+        // Also try without the .AssetName suffix
+        if (UEditorAssetLibrary::DoesAssetExist(FullPath))
+        {
+            UE_LOG(LogTemp, Log, TEXT("Resolved widget blueprint '%s' to '%s'"), *ComponentType, *FullPath);
+            return FullPath;
+        }
+    }
+
+    // If not found in common paths, try using Asset Registry to search
+    FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+    IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
+
+    FARFilter Filter;
+    Filter.ClassPaths.Add(UWidgetBlueprint::StaticClass()->GetClassPathName());
+    Filter.bRecursivePaths = true;
+    Filter.PackagePaths.Add(FName(TEXT("/Game")));
+
+    TArray<FAssetData> AssetDataList;
+    AssetRegistry.GetAssets(Filter, AssetDataList);
+
+    for (const FAssetData& AssetData : AssetDataList)
+    {
+        if (AssetData.AssetName.ToString().Equals(SearchName, ESearchCase::IgnoreCase))
+        {
+            FString FoundPath = AssetData.GetObjectPathString();
+            UE_LOG(LogTemp, Log, TEXT("Found widget blueprint '%s' via Asset Registry: '%s'"), *ComponentType, *FoundPath);
+            return FoundPath;
+        }
+    }
+
+    UE_LOG(LogTemp, Warning, TEXT("Could not resolve widget blueprint path: %s"), *ComponentType);
+    return FString();
+}
+
+UWidget* FWidgetComponentService::CreateCustomWidgetBlueprint(
+    UWidgetBlueprint* ParentWidgetBlueprint,
+    const FString& ComponentName,
+    const FString& WidgetBlueprintPath,
+    const TSharedPtr<FJsonObject>& KwargsObject)
+{
+    UE_LOG(LogTemp, Log, TEXT("Creating custom widget blueprint instance: %s from %s"), *ComponentName, *WidgetBlueprintPath);
+
+    // Load the widget blueprint
+    UObject* LoadedAsset = UEditorAssetLibrary::LoadAsset(WidgetBlueprintPath);
+    UWidgetBlueprint* SourceWidgetBlueprint = Cast<UWidgetBlueprint>(LoadedAsset);
+
+    if (!SourceWidgetBlueprint)
+    {
+        UE_LOG(LogTemp, Error, TEXT("Failed to load widget blueprint: %s"), *WidgetBlueprintPath);
+        return nullptr;
+    }
+
+    // Get the generated class from the source widget blueprint
+    UClass* WidgetClass = SourceWidgetBlueprint->GeneratedClass;
+    if (!WidgetClass)
+    {
+        UE_LOG(LogTemp, Error, TEXT("Widget blueprint has no generated class: %s"), *WidgetBlueprintPath);
+        return nullptr;
+    }
+
+    // Create an instance of the widget using the widget tree
+    UWidgetTree* WidgetTree = ParentWidgetBlueprint->WidgetTree;
+    if (!WidgetTree)
+    {
+        UE_LOG(LogTemp, Error, TEXT("Parent widget blueprint has no widget tree"));
+        return nullptr;
+    }
+
+    // Use WidgetTree->ConstructWidget to create the widget instance
+    UWidget* NewWidget = WidgetTree->ConstructWidget<UWidget>(WidgetClass, FName(*ComponentName));
+
+    if (!NewWidget)
+    {
+        UE_LOG(LogTemp, Error, TEXT("Failed to construct widget instance from class: %s"), *WidgetClass->GetName());
+        return nullptr;
+    }
+
+    // Mark as variable so it can be referenced in Blueprint graphs
+    NewWidget->bIsVariable = true;
+
+    UE_LOG(LogTemp, Log, TEXT("Successfully created custom widget blueprint instance: %s (class: %s)"),
+        *ComponentName, *WidgetClass->GetName());
+
+    return NewWidget;
 }
